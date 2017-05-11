@@ -25,6 +25,8 @@ services:
       - XTRABACKUP_PASSWORD_FILE=/run/secrets/xtrabackup_password
       - NODE_ADDRESS=^10.0.0.*
       - HEALTHY_WHILE_BOOTING=1
+    networks:
+      - galera_network
     command: node galera_seed,galera_node
     deploy:
       replicas: 0
