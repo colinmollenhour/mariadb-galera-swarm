@@ -9,7 +9,9 @@ services:
       - MYSQL_PASSWORD_FILE=/run/secrets/mysql_password
       - MYSQL_DATABASE=database
       - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/mysql_root_password
-      - NODE_ADDRESS=eth0
+      - NODE_ADDRESS=^10.0.0.*
+    networks:
+      - galera_network
     command: seed
     volumes:
       - mysql-data:/var/lib/mysql
@@ -21,7 +23,7 @@ services:
     image: colinmollenhour/mariadb-galera-swarm
     environment:
       - XTRABACKUP_PASSWORD_FILE=/run/secrets/xtrabackup_password
-      - NODE_ADDRESS=eth0
+      - NODE_ADDRESS=^10.0.0.*
       - HEALTHY_WHILE_BOOTING=1
     command: node galera_seed,galera_node
     deploy:
@@ -32,6 +34,10 @@ services:
 volumes:
   mysql-data:
     driver: local
+
+networks:
+  galera_network:
+    driver: overlay
 
 secrets:
   xtrabackup_password:

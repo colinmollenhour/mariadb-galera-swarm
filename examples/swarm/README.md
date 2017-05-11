@@ -20,3 +20,5 @@ $ docker service scale galera_node=3
 Note, currently I do not know of a good way to retrieve the DNS name to lookup other IPs so the
 `docker-compose.yml` file has `galera_seed,galera_node` hard-coded which would not work unless
 `galera` is used as the name of the stack for the `docker stack deploy` command.
+
+For similar reasons, the example `docker-compose.yml` file contains a user network called `galera_network`. The name of this network is not critical, but it needs to be first in the list of user defined overlay networks in `docker-compose.yml`, so that Docker allocates it the subnet 10.0.0.0/24. This is required so that the `NODE_ADDRESS=^10.0.0.*` pattern matching works when the seed and node containers are started.
