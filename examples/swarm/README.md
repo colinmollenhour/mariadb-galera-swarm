@@ -23,4 +23,6 @@ Note, currently I do not know of a good way to retrieve the DNS name to lookup o
 
 For similar reasons, the example `docker-compose.yml` file contains a user network called `galera_network`. The name of this network is not critical, but it needs to be first in the list of user defined overlay networks in `docker-compose.yml`, so that Docker allocates it the subnet 10.0.0.0/24. This is required so that the `NODE_ADDRESS=^10.0.0.*` pattern matching works when the seed and node containers are started.
 
-If you want to use a different subnet address for this user network, then it should be created first and the network type in `docker-compose.yml` should be changed to external. See https://docs.docker.com/engine/swarm/networking/#create-an-overlay-network-in-a-swarm
+If you want to use a different subnet address for this user network, then it should be created first, the network type in `docker-compose.yml` should be changed to `external`, and the `NODE_ADDRESS` pattern updated to this new address.
+
+For more information on creating overlay networks with a specific subnet address, see https://docs.docker.com/engine/swarm/networking/#create-an-overlay-network-in-a-swarm
