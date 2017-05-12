@@ -68,7 +68,7 @@ elif [[ "$NODE_ADDRESS" =~ [a-zA-Z][a-zA-Z0-9:]+ ]]; then
 	NODE_ADDRESS=$(ip addr | awk "/inet/ && / $NODE_ADDRESS\$/{sub(/\\/.*$/,\"\",\$2); print \$2}" | head -n 1)
 elif ! [[ "$NODE_ADDRESS" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 	# Support grep pattern. E.g. ^10.0.1.*
-	NODE_ADDRESS=$(getent hosts $(hostname) | grep -e "$NODE_ADDRESS" | awk '{print $1}')
+	NODE_ADDRESS=$(getent hosts $(hostname) | awk '{print $1}' | grep -e "$NODE_ADDRESS")
 fi
 if ! [[ "$NODE_ADDRESS" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 	echo "Could not determine NODE_ADDRESS: $NODE_ADDRESS"
