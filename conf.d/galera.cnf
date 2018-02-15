@@ -22,7 +22,7 @@ wsrep_provider=/usr/lib/galera/libgalera_smm.so
 wsrep_sst_method=xtrabackup-v2
 [sst]
 sst-syslog=-1
-progress=/tmp/mysql-console/fifo
+#progress=/tmp/mysql-console/fifo
 #inno-apply-opts="--use-memory=2G"
-#compressor="pigz --fast --processes 4"
-#decompressor="pigz --decompress"
+#compressor=pigz-compress-fast-2.sh
+#decompressor=pigz-decompress.sh

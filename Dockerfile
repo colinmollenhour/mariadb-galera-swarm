@@ -4,6 +4,7 @@ RUN set -x \
     && apt-get update \
     && apt-get install -y --no-install-recommends --no-install-suggests \
       curl \
+      netcat \
       pigz \
       percona-toolkit \
       pv \

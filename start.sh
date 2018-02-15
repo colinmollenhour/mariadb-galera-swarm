@@ -153,10 +153,8 @@ then
 	fi
 
 	cat >/tmp/bootstrap.sql <<EOF
-CREATE USER IF NOT EXISTS 'xtrabackup'@'127.0.0.1' IDENTIFIED BY '$XTRABACKUP_PASSWORD';
-GRANT RELOAD,LOCK TABLES,REPLICATION CLIENT ON *.* TO 'xtrabackup'@'127.0.0.1';
-CREATE USER IF NOT EXISTS 'xtrabackup'@'localhost' IDENTIFIED BY '$XTRABACKUP_PASSWORD';
-GRANT RELOAD,LOCK TABLES,REPLICATION CLIENT ON *.* TO 'xtrabackup'@'localhost';
+CREATE USER IF NOT EXISTS 'xtrabackup'@'%' IDENTIFIED BY '$XTRABACKUP_PASSWORD';
+GRANT RELOAD,LOCK TABLES,REPLICATION CLIENT ON *.* TO 'xtrabackup'@'%';
 CREATE USER IF NOT EXISTS 'system'@'127.0.0.1' IDENTIFIED BY '$SYSTEM_PASSWORD';
 GRANT PROCESS,SHUTDOWN ON *.* TO 'system'@'127.0.0.1';
 CREATE USER IF NOT EXISTS 'system'@'localhost' IDENTIFIED BY '$SYSTEM_PASSWORD';
@@ -242,6 +240,11 @@ case $START_MODE in
 			done
 			GCOMM=${GCOMM%%,}                        # strip trailing commas
 			GCOMM=$(echo "$GCOMM" | sed 's/,\+/,/g') # strip duplicate commas
+
+			# Allow user to bypass waiting for other IPs
+			if [[ -f /var/lib/mysql/skip-gcomm-wait ]]; then
+				break
+			fi
 
 			# It is possible that containers on other nodes aren't running yet and should be waited on
 			# before trying to start. For example, this occurs when updated container images are being pulled
