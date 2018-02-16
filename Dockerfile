@@ -25,4 +25,6 @@ EXPOSE 3306 4444 4567 4567/udp 4568 8080 8081
 
 HEALTHCHECK CMD /usr/local/bin/healthcheck.sh
 
+ENV SST_METHOD=xtrabackup-v2
+
 ENTRYPOINT ["start.sh"]

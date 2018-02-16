@@ -202,7 +202,7 @@ fi
 #
 case $START_MODE in
 	seed)
-		MYSQL_MODE_ARGS+=" --wsrep-on=ON --wsrep-new-cluster"
+		MYSQL_MODE_ARGS+=" --wsrep-on=ON --wsrep-new-cluster --wsrep-sst-method=$SST_METHOD"
 		echo "Starting seed node"
 	;;
 	node)
@@ -212,7 +212,7 @@ case $START_MODE in
 			echo "List of nodes addresses/hostnames required"
 			exit 1
 		fi
-		MYSQL_MODE_ARGS+=" --wsrep-on=ON"
+		MYSQL_MODE_ARGS+=" --wsrep-on=ON --wsrep-sst-method=$SST_METHOD"
 		RESOLVE=0
 		SLEEPS=0
 

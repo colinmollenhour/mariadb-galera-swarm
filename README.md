@@ -49,6 +49,7 @@ Please submit more examples for Kubernetes, Mesos, etc. and also improvements fo
  - `HEALTHY_WHILE_BOOTING` (optional) - If '1' then the HEALTHCHECK script will report healthy
    during the boot phase (waiting for DNS to resolve and recovering wsrep position).
  - `SKIP_TZINFO` (optional) - Specify any value to skip loading of timezone table data when initing a new directory.
+ - `SST_METHOD` (optional - defaults to 'xtrabackup-v2')  May be set to 'rsync' or 'mysqldump'.  Other methods requiring further configuration or installed dependencies are not available in this image.
 
 Additional variables for "seed":
 
