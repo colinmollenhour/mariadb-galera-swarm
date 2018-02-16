@@ -41,7 +41,7 @@ Please submit more examples for Kubernetes, Mesos, etc. and also improvements fo
 ### Environment Variables
 
  - `XTRABACKUP_PASSWORD` (required unless `XTRABACKUP_PASSWORD_FILE` is provided)
- - `SYSTEM_PASSWORD` (optional - defaults to hash of `XTRABACKUP_PASSWORD`)
+ - `SYSTEM_PASSWORD` (required or set to a hash of `XTRABACKUP_PASSWORD` if provided.)
  - `CLUSTER_NAME` (optional)
  - `NODE_ADDRESS` (optional - defaults to ethwe, then eth0)
  - `LISTEN_WHEN_HEALTHY` (optional) - Specify a port number to open a healthcheck socket on once the cluster

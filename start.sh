@@ -92,24 +92,38 @@ fi
 echo "...------======------... MariaDB Galera Start Script ...------======------..."
 echo "Got NODE_ADDRESS=$NODE_ADDRESS"
 
+MYSQL_MODE_ARGS=""
+
 #
 # Read optional secrets from files
 #
-XTRABACKUP_PASSWORD_FILE=${XTRABACKUP_PASSWORD_FILE:-/run/secrets/xtrabackup_password}
-SYSTEM_PASSWORD_FILE=${SYSTEM_PASSWORD_FILE:-/run/secrets/system_password}
-if [ -z $XTRABACKUP_PASSWORD ] && [ -f $XTRABACKUP_PASSWORD_FILE ]; then
+
+# mode is xtrabackup?
+if [[ $SST_MODE =~ ^xtrabackup.*$ ]] ; then
+  XTRABACKUP_PASSWORD_FILE=${XTRABACKUP_PASSWORD_FILE:-/run/secrets/xtrabackup_password}
+  if [ -z $XTRABACKUP_PASSWORD ] && [ -f $XTRABACKUP_PASSWORD_FILE ]; then
 	XTRABACKUP_PASSWORD=$(cat $XTRABACKUP_PASSWORD_FILE)
+  fi
+  [ -z "$XTRABACKUP_PASSWORD" ] && { echo "XTRABACKUP_PASSWORD not set"; exit 1; }
+  MYSQL_MODE_ARGS+=" --wsrep_sst_auth=xtrabackup:$XTRABACKUP_PASSWORD" 
 fi
-[ -z "$XTRABACKUP_PASSWORD" ] && { echo "XTRABACKUP_PASSWORD not set"; exit 1; }
+
+SYSTEM_PASSWORD_FILE=${SYSTEM_PASSWORD_FILE:-/run/secrets/system_password}
 if [ -z $SYSTEM_PASSWORD ] && [ -f $SYSTEM_PASSWORD_FILE ]; then
 	SYSTEM_PASSWORD=$(cat $SYSTEM_PASSWORD_FILE)
 fi
-[ -z "$SYSTEM_PASSWORD" ] && SYSTEM_PASSWORD=$(echo "$XTRABACKUP_PASSWORD" | sha256sum | awk '{print $1;}')
+if [ -z "$SYSTEM_PASSWORD" ] ; then
+  if [ -z "$XTRABACKUP_PASSWORD" ] ; then
+     SYSTEM_PASSWORD= $(echo "$XTRABACKUP_PASSWORD" | sha256sum | awk '{print $1;}')
+  else
+     echo "SYSTEM_PASSWORD not set"
+     exit 1
+  fi
+fi
 
 CLUSTER_NAME=${CLUSTER_NAME:-cluster}
 GCOMM_MINIMUM=${GCOMM_MINIMUM:-2}
 GCOMM=""
-MYSQL_MODE_ARGS=""
 
 # Hold startup until the flag file is deleted
 if [[ -f /var/lib/mysql/hold-start ]]; then
@@ -152,9 +166,13 @@ then
 		echo "MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD"
 	fi
 
-	cat >/tmp/bootstrap.sql <<EOF
+	if [[ $SST_MODE =~ ^xtrabackup.*$ ]] ; then
+		cat >/tmp/bootstrap.sql <<EOF
 CREATE USER IF NOT EXISTS 'xtrabackup'@'%' IDENTIFIED BY '$XTRABACKUP_PASSWORD';
 GRANT RELOAD,LOCK TABLES,REPLICATION CLIENT ON *.* TO 'xtrabackup'@'%';
+EOF
+	fi
+	cat >>/tmp/bootstrap.sql <<EOF
 CREATE USER IF NOT EXISTS 'system'@'127.0.0.1' IDENTIFIED BY '$SYSTEM_PASSWORD';
 GRANT PROCESS,SHUTDOWN ON *.* TO 'system'@'127.0.0.1';
 CREATE USER IF NOT EXISTS 'system'@'localhost' IDENTIFIED BY '$SYSTEM_PASSWORD';
@@ -314,7 +332,6 @@ gosu mysql mysqld.sh --console \
 	--wsrep_cluster_name=$CLUSTER_NAME \
 	--wsrep_cluster_address=gcomm://$GCOMM \
 	--wsrep_node_address=$NODE_ADDRESS:4567 \
-	--wsrep_sst_auth=xtrabackup:$XTRABACKUP_PASSWORD \
 	--default-time-zone=+00:00 \
 	"$@" 2>&1 &
 wait $! || true
