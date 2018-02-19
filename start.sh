@@ -25,6 +25,33 @@ if [ "$TRACE" = "y" ]; then
 	set -x
 fi
 
+# Set MariaDB's time zone
+if [[ -n $SKIP_TZINFO ]]; then
+    # We're skipping timezone tables population, so we restrict the
+    # timezone format to numeric.
+    DEFAULT_TIME_ZONE=${DEFAULT_TIME_ZONE:-"+00:00"}
+
+    if [[ $DEFAULT_TIME_ZONE != *":"* ]]; then
+		echo "Timezone '$DEFAULT_TIME_ZONE' cannot be used, because 'SKIP_TZINFO' is set. Falling back to default."
+        DEFAULT_TIME_ZONE="+00:00"
+    fi
+else
+    # If we're populating timezone tables, we are able to use both verbal and
+    # numeric timezone formats: "CET" or "+01:00". The first format is commonly
+    # used with the `TZ` envvar, which can be overriden by a more specific
+    # `DEFAULT_TIME_ZONE`.
+    #
+    # The default value is "+00:00".
+    #
+    if [[ -z $DEFAULT_TIME_ZONE ]]; then
+        if [[ -n $TZ ]]; then
+            DEFAULT_TIME_ZONE=$TZ
+        else
+            DEFAULT_TIME_ZONE="+00:00"
+        fi
+    fi
+fi
+
 # Set data directory permissions for later use of "gosu"
 chown mysql /var/lib/mysql
 
@@ -49,7 +76,7 @@ case "$1" in
 		set +e -m
 		gosu mysql mysqld.sh --console \
 			--wsrep-on=OFF \
-			--default-time-zone="+00:00" \
+			--default-time-zone=$DEFAULT_TIME_ZONE \
 			"$@" 2>&1 &
 		wait $! || true
 		exit
@@ -332,7 +359,7 @@ gosu mysql mysqld.sh --console \
 	--wsrep_cluster_name=$CLUSTER_NAME \
 	--wsrep_cluster_address=gcomm://$GCOMM \
 	--wsrep_node_address=$NODE_ADDRESS:4567 \
-	--default-time-zone=+00:00 \
+	--default-time-zone=$DEFAULT_TIME_ZONE \
 	"$@" 2>&1 &
 wait $! || true
 RC=$?
