@@ -19,7 +19,7 @@ wsrep_provider=/usr/lib/galera/libgalera_smm.so
 #
 # xtrabackup-v2 allows for faster SST
 #
-wsrep_sst_method=xtrabackup-v2
+#wsrep_sst_method=xtrabackup-v2
 [sst]
 sst-syslog=-1
 #progress=/tmp/mysql-console/fifo
