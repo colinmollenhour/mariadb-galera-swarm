@@ -126,12 +126,12 @@ MYSQL_MODE_ARGS=""
 #
 
 # mode is xtrabackup?
-if [[ $SST_MODE =~ ^xtrabackup.*$ ]] ; then
+if [[ $SST_METHOD =~ ^xtrabackup ]] ; then
   XTRABACKUP_PASSWORD_FILE=${XTRABACKUP_PASSWORD_FILE:-/run/secrets/xtrabackup_password}
   if [ -z $XTRABACKUP_PASSWORD ] && [ -f $XTRABACKUP_PASSWORD_FILE ]; then
 	XTRABACKUP_PASSWORD=$(cat $XTRABACKUP_PASSWORD_FILE)
   fi
-  [ -z "$XTRABACKUP_PASSWORD" ] && { echo "XTRABACKUP_PASSWORD not set"; exit 1; }
+  [ -z "$XTRABACKUP_PASSWORD" ] && echo "WARNING: XTRABACKUP_PASSWORD is empty"
   MYSQL_MODE_ARGS+=" --wsrep_sst_auth=xtrabackup:$XTRABACKUP_PASSWORD" 
 fi
 
@@ -139,9 +139,10 @@ SYSTEM_PASSWORD_FILE=${SYSTEM_PASSWORD_FILE:-/run/secrets/system_password}
 if [ -z $SYSTEM_PASSWORD ] && [ -f $SYSTEM_PASSWORD_FILE ]; then
 	SYSTEM_PASSWORD=$(cat $SYSTEM_PASSWORD_FILE)
 fi
-if [ -z "$SYSTEM_PASSWORD" ] ; then
-  if [ -z "$XTRABACKUP_PASSWORD" ] ; then
-     SYSTEM_PASSWORD= $(echo "$XTRABACKUP_PASSWORD" | sha256sum | awk '{print $1;}')
+
+if [ -z "$SYSTEM_PASSWORD" ]; then
+  if [ -n "$XTRABACKUP_PASSWORD" ]; then
+     SYSTEM_PASSWORD=$(echo "$XTRABACKUP_PASSWORD" | sha256sum | awk '{print $1;}')
   else
      echo "SYSTEM_PASSWORD not set"
      exit 1
@@ -193,17 +194,11 @@ then
 		echo "MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD"
 	fi
 
-	if [[ $SST_MODE =~ ^xtrabackup.*$ ]] ; then
-		cat >/tmp/bootstrap.sql <<EOF
-CREATE USER IF NOT EXISTS 'xtrabackup'@'%' IDENTIFIED BY '$XTRABACKUP_PASSWORD';
-GRANT RELOAD,LOCK TABLES,REPLICATION CLIENT ON *.* TO 'xtrabackup'@'%';
-EOF
-	fi
-	cat >>/tmp/bootstrap.sql <<EOF
-CREATE USER IF NOT EXISTS 'system'@'127.0.0.1' IDENTIFIED BY '$SYSTEM_PASSWORD';
-GRANT PROCESS,SHUTDOWN ON *.* TO 'system'@'127.0.0.1';
-CREATE USER IF NOT EXISTS 'system'@'localhost' IDENTIFIED BY '$SYSTEM_PASSWORD';
-GRANT PROCESS,SHUTDOWN ON *.* TO 'system'@'localhost';
+	>/tmp/bootstrap.sql
+
+	# Create 'root' user
+	cat >> /tmp/bootstrap.sql <<EOF
+
 CREATE USER IF NOT EXISTS 'root'@'127.0.0.1';
 SET PASSWORD FOR 'root'@'127.0.0.1' = PASSWORD('$MYSQL_ROOT_PASSWORD');
 GRANT ALL PRIVILEGES ON *.* TO 'root'@'127.0.0.1' WITH GRANT OPTION;
@@ -212,6 +207,28 @@ SET PASSWORD FOR 'root'@'localhost' = PASSWORD('$MYSQL_ROOT_PASSWORD');
 GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' WITH GRANT OPTION;
 EOF
 
+	# Create 'system' user for healthchecks and shutdown signal
+	cat >> /tmp/bootstrap.sql <<EOF
+CREATE USER IF NOT EXISTS 'system'@'127.0.0.1' IDENTIFIED BY '$SYSTEM_PASSWORD';
+GRANT PROCESS,SHUTDOWN ON *.* TO 'system'@'127.0.0.1';
+CREATE USER IF NOT EXISTS 'system'@'localhost' IDENTIFIED BY '$SYSTEM_PASSWORD';
+GRANT PROCESS,SHUTDOWN ON *.* TO 'system'@'localhost';
+EOF
+
+	# Create xtrabackup user if needed
+	if [[ $SST_METHOD =~ ^xtrabackup ]] ; then
+		cat >>/tmp/bootstrap.sql <<EOF
+CREATE USER IF NOT EXISTS 'xtrabackup'@'localhost';
+GRANT RELOAD,LOCK TABLES,REPLICATION CLIENT ON *.* TO 'xtrabackup'@'localhost';
+EOF
+		if [[ -n $XTRABACKUP_PASSWORD ]]; then
+			cat >>/tmp/bootstrap.sql <<EOF
+SET PASSWORD FOR 'xtrabackup'@'localhost' = PASSWORD('$XTRABACKUP_PASSWORD');
+EOF
+		fi
+	fi
+
+	# Create user's database and user
 	if [ "$MYSQL_DATABASE" ]; then
 		echo "CREATE DATABASE IF NOT EXISTS \`$MYSQL_DATABASE\` ;" >> /tmp/bootstrap.sql
 	fi
