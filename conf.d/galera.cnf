@@ -20,9 +20,10 @@ wsrep_provider=/usr/lib/galera/libgalera_smm.so
 # xtrabackup-v2 allows for faster SST
 #
 #wsrep_sst_method=xtrabackup-v2 # This is set with SST_METHOD env variable
+
 [sst]
 sst-syslog=-1
-progress=/tmp/mysql-console/fifo
+#progress=/tmp/mysql-console/fifo
 #inno-apply-opts="--use-memory=2G"
-#compressor="pigz --fast --processes 4"
-#decompressor="pigz --decompress"
+#compressor=pigz-compress-fast-2.sh
+#decompressor=pigz-decompress.sh

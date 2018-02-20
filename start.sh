@@ -139,6 +139,7 @@ SYSTEM_PASSWORD_FILE=${SYSTEM_PASSWORD_FILE:-/run/secrets/system_password}
 if [ -z $SYSTEM_PASSWORD ] && [ -f $SYSTEM_PASSWORD_FILE ]; then
 	SYSTEM_PASSWORD=$(cat $SYSTEM_PASSWORD_FILE)
 fi
+
 if [ -z "$SYSTEM_PASSWORD" ]; then
   if [ -n "$XTRABACKUP_PASSWORD" ]; then
      SYSTEM_PASSWORD=$(echo "$XTRABACKUP_PASSWORD" | sha256sum | awk '{print $1;}')
@@ -197,6 +198,7 @@ then
 
 	# Create 'root' user
 	cat >> /tmp/bootstrap.sql <<EOF
+
 CREATE USER IF NOT EXISTS 'root'@'127.0.0.1';
 SET PASSWORD FOR 'root'@'127.0.0.1' = PASSWORD('$MYSQL_ROOT_PASSWORD');
 GRANT ALL PRIVILEGES ON *.* TO 'root'@'127.0.0.1' WITH GRANT OPTION;
