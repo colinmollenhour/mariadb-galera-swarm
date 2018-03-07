@@ -149,7 +149,7 @@ if [ -z "$SYSTEM_PASSWORD" ]; then
 fi
 
 CLUSTER_NAME=${CLUSTER_NAME:-cluster}
-GCOMM_MINIMUM=${GCOMM_MINIMUM:-2}
+GCOMM_MINIMUM=${GCOMM_MINIMUM:-3}
 GCOMM=""
 
 # Hold startup until the flag file is deleted
@@ -287,12 +287,20 @@ case $START_MODE in
 			fi
 			SEP=""
 			GCOMM=""
+			EMPTYFLAG=0
 			for ADDR in ${ADDRS//,/ }; do
 				if [[ "$ADDR" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 					GCOMM+="$SEP$ADDR"
 				else
 					RESOLVE=1
-					GCOMM+="$SEP$(getent hosts "$ADDR" | awk '{ print $1 }' | paste -sd ",")"
+					echo "hosts: $(getent hosts tasks."$ADDR")"
+					echo "getent hosts tasks."$ADDR""
+					GCOMMTMP="$SEP$(getent hosts tasks."$ADDR" | awk '{ print $1 }' | paste -sd ",")"
+					if [ ! -z $GCOMMTMP ]; then
+						GCOMM+=$GCOMMTMP
+					else
+						EMPTYFLAG=1
+					fi
 				fi
 				if [ -n "$GCOMM" ]; then
 					SEP=,
@@ -300,7 +308,7 @@ case $START_MODE in
 			done
 			GCOMM=${GCOMM%%,}                        # strip trailing commas
 			GCOMM=$(echo "$GCOMM" | sed 's/,\+/,/g') # strip duplicate commas
-
+			echo "$GCOMM $GCOMM_MINIMUM"
 			# Allow user to bypass waiting for other IPs
 			if [[ -f /var/lib/mysql/skip-gcomm-wait ]]; then
 				break
@@ -310,7 +318,7 @@ case $START_MODE in
 			# before trying to start. For example, this occurs when updated container images are being pulled
 			# by `docker service update <service>` or on a full cluster power loss
 			COUNT=$(echo "$GCOMM" | tr ',' "\n" | sort -u | grep -v -e "^$NODE_ADDRESS\$" -e '^$' | wc -l)
-			if [ $RESOLVE -eq 1 ] && [ $COUNT -lt $(($GCOMM_MINIMUM - 1)) ]; then
+			if [ -z $GCOMM ] || [ $EMPTYFLAG -eq 1 ] || [ $RESOLVE -eq 1 ] && [ $COUNT -lt $(($GCOMM_MINIMUM - 1)) ]; then
 
 				# Bypass healthcheck so we can keep waiting for other nodes to appear
 				if [[ $HEALTHY_WHILE_BOOTING -eq 1 ]]; then
@@ -333,6 +341,14 @@ case $START_MODE in
 		done
 		# Pre-boot completed
 		rm -f /var/lib/mysql/pre-boot.flag
+		GCOMM=${GCOMM//$NODE_ADDRESS/}
+
+		GCOMM=${GCOMM#,}
+
+		GCOMM=${GCOMM%,}
+
+		GCOMM=$(echo "$GCOMM" | sed 's/,\+/,/g')
+
 		echo "Starting node, connecting to gcomm://$GCOMM"
 	;;
 esac
@@ -340,6 +356,7 @@ esac
 
 # start processes
 set +e -m
+set -v
 
 # Allow external processes to write to docker logs (wsrep_notify_cmd)
 # Place it in a directory that is not writeable by mysql to prevent SST script from deleting it
@@ -386,4 +403,5 @@ test -s /var/run/galera-healthcheck-1.pid && kill $(cat /var/run/galera-healthch
 test -s /var/run/galera-healthcheck-2.pid && kill $(cat /var/run/galera-healthcheck-2.pid)
 
 echo "Goodbye"
+#sleep 10000000
 exit $RC

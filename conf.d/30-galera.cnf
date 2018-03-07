@@ -10,6 +10,7 @@ wsrep_provider=/usr/lib/galera/libgalera_smm.so
 wsrep_provider_options="gcache.size=2048M; gcache.keep_pages_size=1024M; gcache.recover=yes;"
 #wsrep_sst_method=xtrabackup-v2 # This is set with SST_METHOD env variable
 #wsrep_slave_threads=4
+#wsrep_debug=ON
 
 #
 # Options for xtrabackup-v2
