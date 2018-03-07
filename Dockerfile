@@ -1,10 +1,14 @@
-FROM mariadb:10.2
+FROM mariadb:10.1.31
+
+ENV MAXSCALE_USER=maxscale \
+    MAXSCALE_PASS=maxscalepass
 
 RUN set -x \
     && apt-get update \
     && apt-get install -y --no-install-recommends --no-install-suggests \
       curl \
       netcat \
+      patch \
       pigz \
       percona-toolkit \
       pv \
@@ -18,8 +22,16 @@ COPY *.sh                    /usr/local/bin/
 COPY bin/galera-healthcheck  /usr/local/bin/galera-healthcheck
 COPY primary-component.sql   /
 
+# Fix MDEV-15254 and MDEV-15128
+COPY *.patch                 /
+RUN patch /usr/bin/wsrep_sst_xtrabackup-v2 </mdev-15254.patch && rm -f /mdev-15254.patch
+RUN patch /usr/bin/wsrep_sst_common </mdev-15128.patch && rm -f /mdev-15128.patch
+
+
+COPY scripts/ /docker-entrypoint-initdb.d/.
+
 # Fix permissions
-RUN chown -R mysql:mysql /etc/mysql && chmod -R go-w /etc/mysql
+RUN chown -R mysql:mysql /etc/mysql && chmod -R go-w /etc/mysql  && chown mysql:mysql /usr/local/bin/mysqld.sh && chown mysql.mysql /docker-entrypoint-initdb.d/*
 
 EXPOSE 3306 4444 4567 4567/udp 4568 8080 8081
 
