@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: node
+  namespace: galera
+spec:
+  selector:
+    app: node
+  ports:
+  - name: mysql
+    port: 3306
+  - name: mysql1
+    port: 3309
+  - name: state-snapshot-transfer
+    port: 4444
+  - name: group-communication
+    port: 4567
+  - name: healthcheck1
+    port: 8080
+  - name: healthcheck2
+    port: 8081
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: seed
+  namespace: galera
+spec:
+  selector:
+    app: seed
+  ports:
+  - name: mysql
+    port: 3306
+  - name: mysql1
+    port: 3309
+  - name: state-snapshot-transfer
+    port: 4444
+  - name: group-communication
+    port: 4567
+  - name: healthcheck1
+    port: 8080
+  - name: healthcheck2
+    port: 8081
