@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seed
+  namespace: galera
+  labels:
+    app: seed
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: seed
+  template:
+    metadata:
+      labels:
+        app: seed
+        galeraRunning: ohyeah
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: galeraRunning
+                operator: In
+                values:
+                - ohyeah
+            topologyKey: "kubernetes.io/hostname"
+      containers:
+      - args:
+        - seed
+        env:
+        - name: MYSQL_DATABASE
+          value: database
+        - name: MYSQL_PASSWORD_FILE
+          value: /etc/secrets/mysql_password
+        - name: MYSQL_ROOT_PASSWORD_FILE
+          value: /etc/secrets/mysql_root_password
+        - name: MYSQL_USER
+          value: user
+        - name: NODE_ADDRESS
+          value: ^10.*.*.*
+        - name: XTRABACKUP_PASSWORD_FILE
+          value: /etc/secrets/xtrabackup_password
+        image: colinmollenhour/mariadb-galera-swarm
+        name: seed
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: mysql-data
+        - mountPath: /etc/secrets
+          name: galera-secrets
+      restartPolicy: Always
+      volumes:
+        - name: mysql-data
+          hostPath:
+            path: /var/lib/mysql
+            type: Directory
+        - name: galera-secrets
+          secret:
+            secretName: galera-secrets
