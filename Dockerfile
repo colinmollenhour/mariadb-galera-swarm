@@ -9,7 +9,7 @@ RUN set -x \
       percona-toolkit \
       percona-xtrabackup \
       pv \
-    && curl -sSL -o /tmp/qpress.tar http://www.quicklz.com/qpress-11-linux-x64.tar \
+    && curl -sSL -A "Chrome/71.0.3578.80" -o /tmp/qpress.tar http://www.quicklz.com/qpress-11-linux-x64.tar \
     && tar -C /usr/local/bin -xf /tmp/qpress.tar qpress \
     && chmod +x /usr/local/bin/qpress \
     && rm -rf /tmp/* /var/cache/apk/* /var/lib/apt/lists/*
