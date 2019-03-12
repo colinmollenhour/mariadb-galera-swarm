@@ -3,7 +3,9 @@ bind-address=0.0.0.0
 binlog_format=ROW
 default-storage-engine=innodb
 
+# Best practice for Galera
 innodb_autoinc_lock_mode=2
+innodb_lock_schedule_algorithm=FCFS
 
 # Subsequent `wsrep_provider_options` will replace the ones specified below
 wsrep_provider=/usr/lib/galera/libgalera_smm.so

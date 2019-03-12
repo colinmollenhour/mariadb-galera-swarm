@@ -55,11 +55,6 @@ fi
 # Set data directory permissions for later use of "gosu"
 chown mysql /var/lib/mysql
 
-# Allow for easily adding more startup scripts
-if [ -f /usr/local/lib/startup.sh ]; then
-	source /usr/local/lib/startup.sh "$@"
-fi
-
 #
 # Utility modes
 #
@@ -73,12 +68,31 @@ case "$1" in
 	no-galera)
 		echo "Starting with Galera disabled"
 		shift 1
+
+		# Allow for easily adding more startup scripts
+		if [ -f /usr/local/lib/startup.sh ]; then
+			source /usr/local/lib/startup.sh "$@"
+		fi
+
+		# Allow for scripts above to create a one-time use init-file
+		if [ -f /var/lib/mysql/init-file.sql ]; then
+			mv /var/lib/mysql/init-file.sql /tmp/init-file.sql
+			set -- "$@" --init-file=/tmp/init-file.sql
+		fi
+
 		set +e -m
-		gosu mysql mysqld.sh --console \
+		gosu mysql mysqld --console \
 			--wsrep-on=OFF \
 			--default-time-zone=$DEFAULT_TIME_ZONE \
 			"$@" 2>&1 &
-		wait $! || true
+		mysql_pid=$!
+
+		# Start fake healthcheck
+		if [[ -n $FAKE_HEALTHCHECK ]]; then
+			no-galera-healthcheck.sh $FAKE_HEALTHCHECK >/dev/null &
+		fi
+
+		wait $mysql_pid || true
 		exit
 		;;
 	bash)
@@ -119,6 +133,12 @@ fi
 echo "...------======------... MariaDB Galera Start Script ...------======------..."
 echo "Got NODE_ADDRESS=$NODE_ADDRESS"
 
+# Allow for easily adding more startup scripts
+export NODE_ADDRESS
+if [ -f /usr/local/lib/startup.sh ]; then
+	source /usr/local/lib/startup.sh "$@"
+fi
+
 MYSQL_MODE_ARGS=""
 
 #
@@ -126,7 +146,7 @@ MYSQL_MODE_ARGS=""
 #
 
 # mode is xtrabackup?
-if [[ $SST_METHOD =~ ^xtrabackup ]] ; then
+if [[ $SST_METHOD =~ ^(xtrabackup|mariabackup) ]] ; then
   XTRABACKUP_PASSWORD_FILE=${XTRABACKUP_PASSWORD_FILE:-/run/secrets/xtrabackup_password}
   if [ -z $XTRABACKUP_PASSWORD ] && [ -f $XTRABACKUP_PASSWORD_FILE ]; then
 	XTRABACKUP_PASSWORD=$(cat $XTRABACKUP_PASSWORD_FILE)
@@ -177,10 +197,14 @@ if   ( [ "$START_MODE" = "node" ] && [ -f /var/lib/mysql/force-cluster-bootstrap
 then
 	echo "Generating cluster bootstrap script..."
 	MYSQL_ROOT_PASSWORD_FILE=${MYSQL_ROOT_PASSWORD_FILE:-/run/secrets/mysql_root_password}
+	MYSQL_ROOT_HOST_FILE=${MYSQL_ROOT_HOST_FILE:-/run/secrets/mysql_root_host}
 	MYSQL_PASSWORD_FILE=${MYSQL_PASSWORD_FILE:-/run/secrets/mysql_password}
 	MYSQL_DATABASE_FILE=${MYSQL_DATABASE_FILE:-/run/secrets/mysql_database}
 	if [ -z $MYSQL_ROOT_PASSWORD ] && [ -f $MYSQL_ROOT_PASSWORD_FILE ]; then
 		MYSQL_ROOT_PASSWORD=$(cat $MYSQL_ROOT_PASSWORD_FILE)
+	fi
+	if [ -z $MYSQL_ROOT_HOST ] && [ -f $MYSQL_ROOT_HOST_FILE ]; then
+		MYSQL_ROOT_HOST=$(cat $MYSQL_ROOT_HOST_FILE)
 	fi
 	if [ -z $MYSQL_PASSWORD ] && [ -f $MYSQL_PASSWORD_FILE ]; then
 		MYSQL_PASSWORD=$(cat $MYSQL_PASSWORD_FILE)
@@ -192,18 +216,25 @@ then
 		MYSQL_ROOT_PASSWORD=$(openssl rand -base64 32)
 		echo "MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD"
 	fi
+	if [ -z "$MYSQL_ROOT_HOST" ]; then
+		MYSQL_ROOT_HOST='127.0.0.1'
+	fi
 
 	>/tmp/bootstrap.sql
 
 	# Create 'root' user
 	cat >> /tmp/bootstrap.sql <<EOF
-CREATE USER IF NOT EXISTS 'root'@'127.0.0.1';
-SET PASSWORD FOR 'root'@'127.0.0.1' = PASSWORD('$MYSQL_ROOT_PASSWORD');
-GRANT ALL PRIVILEGES ON *.* TO 'root'@'127.0.0.1' WITH GRANT OPTION;
-CREATE USER IF NOT EXISTS 'root'@'localhost';
-SET PASSWORD FOR 'root'@'localhost' = PASSWORD('$MYSQL_ROOT_PASSWORD');
-GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' WITH GRANT OPTION;
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'${MYSQL_ROOT_HOST}' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD' WITH GRANT OPTION;
 EOF
+	if [ "$MYSQL_ROOT_SOCKET_AUTH" = "0" ]; then
+		cat >> /tmp/bootstrap.sql <<EOF
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' IDENTIFIED VIA unix_socket WITH GRANT OPTION;
+EOF
+	else
+		cat >> /tmp/bootstrap.sql <<EOF
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD' WITH GRANT OPTION;
+EOF
+	fi
 
 	# Create 'system' user for healthchecks and shutdown signal
 	cat >> /tmp/bootstrap.sql <<EOF
@@ -214,10 +245,10 @@ GRANT PROCESS,SHUTDOWN ON *.* TO 'system'@'localhost';
 EOF
 
 	# Create xtrabackup user if needed
-	if [[ $SST_METHOD =~ ^xtrabackup ]] ; then
+	if [[ $SST_METHOD =~ ^(xtrabackup|mariabackup) ]] ; then
 		cat >>/tmp/bootstrap.sql <<EOF
 CREATE USER IF NOT EXISTS 'xtrabackup'@'localhost';
-GRANT RELOAD,LOCK TABLES,REPLICATION CLIENT ON *.* TO 'xtrabackup'@'localhost';
+GRANT PROCESS,RELOAD,LOCK TABLES,REPLICATION CLIENT ON *.* TO 'xtrabackup'@'localhost';
 EOF
 		if [[ -n $XTRABACKUP_PASSWORD ]]; then
 			cat >>/tmp/bootstrap.sql <<EOF
@@ -386,6 +417,11 @@ galera-healthcheck -user=system -password="$SYSTEM_PASSWORD" \
 	-availWhenReadOnly=true \
 	-pidfile=/var/run/galera-healthcheck-2.pid >/dev/null &
 
+# Run automated upgrades
+if [[ -z $SKIP_UPGRADES ]] && [[ ! -f /var/lib/mysql/skip-upgrades ]]; then
+	sleep 5 && run-upgrades.sh || true &
+fi
+
 gosu mysql mysqld.sh --console \
 	$MYSQL_MODE_ARGS \
 	--wsrep_cluster_name=$CLUSTER_NAME \
@@ -393,6 +429,7 @@ gosu mysql mysqld.sh --console \
 	--wsrep_node_address=$NODE_ADDRESS:4567 \
 	--default-time-zone=$DEFAULT_TIME_ZONE \
 	"$@" 2>&1 &
+
 wait $! || true
 RC=$?
 

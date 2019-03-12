@@ -31,11 +31,25 @@ services:
     command: "node node"
     stateful: true
     volumes:
-      - mysql-data:/var/lib/mysql
+      - mariadb-data:/var/lib/mysql
     deploy:
       strategy: daemon
       min_health: 0.6
       wait_for_port: 8082
     instances: 1
-    affinity:
-      - label==role=db-node
+    hooks:
+      pre_start:
+#        - name: node
+#          cmd: touch /var/lib/mysql/hold-start
+#          instances: "*"
+#          oneshot: true
+        - name: seed
+          cmd: rm -f /var/lib/mysql/hold-start; touch /var/lib/mysql/new-cluster; chmod 666 /var/lib/mysql/new-cluster
+          instances: 1
+          oneshot: true
+
+volumes:
+  mariadb-data:
+    external:
+      name: mariadb-data
+

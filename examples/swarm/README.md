@@ -17,8 +17,8 @@ $ docker service scale galera_seed=0
 $ docker service scale galera_node=3
 ```
 
-The example `docker-compose.yml` file contains a user network called `galera_network`. The name of this network is not critical, but it needs to be first in the list of user defined overlay networks in `docker-compose.yml`, so that Docker allocates it the subnet 10.0.0.0/24. This is required so that the `NODE_ADDRESS=^10.0.0.*` pattern matching works when the seed and node containers are started.
+The example `docker-compose.yml` file contains a user network called `galera_network`. You may want to use a different network
+that is shared with other components of your app or multiple networks. Just note that the `NODE_ADDRESS` pattern must be able
+to match addresseses allocated within the network you use for inter-node communication without matching any other bound addresses.
 
-If you want to use a different subnet address for this user network, then it should be created first and the network type in `docker-compose.yml` should be changed to `external`. The `NODE_ADDRESS` pattern should also be updated to this new address. For example, if the new subnet address is `10.0.9.0` then change it to `NODE_ADDRESS=^10.0.9.*`.
-
-For more information on creating overlay networks with a specific subnet address, see https://docs.docker.com/engine/swarm/networking/#create-an-overlay-network-in-a-swarm
+For more information on creating overlay networks, see https://docs.docker.com/engine/swarm/networking/#create-an-overlay-network-in-a-swarm

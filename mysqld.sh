@@ -190,7 +190,7 @@ else
 			fi
 			for node in ${GCOMM//,/ }; do
 				[[ $node = $NODE_ADDRESS ]] && continue
-				if socat - TCP:$node:$LISTEN_PORT <<< "seqno:$NODE_ADDRESS:$POSITION:$SAFE_TO_BOOTSTRAP"; then
+				if socat - TCP:$node:$LISTEN_PORT <<< "seqno:$NODE_ADDRESS:$POSITION:$SAFE_TO_BOOTSTRAP" > /dev/null; then
 					SENT_NODES="$SENT_NODES,$node"
 				fi
 				if [[ -n $VIEW_ID ]]; then
@@ -215,7 +215,7 @@ else
 			# Merge in any nodes we have received data from so that we will also send data to them
 			if [[ -s $tmpfile ]]; then
 				_GCOMM="$GCOMM,$(<$tmpfile awk -F: '/^seqno:/{print $2}' | sort -u | paste -sd ',')"
-				GCOMM=$(<<<"${GCOMM%%,}" sed 's/,\+/,/g' | tr ',' '\n' | sort -u | paste -sd ',')
+				GCOMM=$(<<<"${_GCOMM%%,}" sed 's/,\+/,/g' | tr ',' '\n' | sort -u | paste -sd ',')
 				OPT=$(<<<"$OPT" sed -E "s#gcomm://[0-9\\.,]+#gcomm://$GCOMM#")
 			fi
 

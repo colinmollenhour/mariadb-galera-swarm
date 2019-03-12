@@ -5,20 +5,6 @@ compatible with auto-scheduling systems, specifically Docker Swarm Mode (1.12+) 
 However, it could also work with manual scheduling (`docker run`) by specifying the correct
 environment variables or possibly other scheduling systems that use similar conventions.
 
-It takes as a command one of the following:
-
- - "seed" - Used only to initialize a new cluster and after initialization and other nodes are joined
-   the "seed" container should be stopped and replaced with a "node" container using the same volume.
- - "node" - Join an existing cluster. Takes as a second argument a comma-separated list of IPs or
-   hostnames to resolve which are used to build the `--wsrep_cluster_address` option for joining a cluster.
- - "no-galera" - Start server with Galera disabled. Useful for maintenance tasks like performing mysql_upgrade
-   and resetting root credentials.
- - "sleep" - Start the container but not the server. Runs "sleep infinity". Useful just to get volumes
-   initialized or if you want to `docker exec` without the server running.
-
-By using DNS resolution to discover other nodes they don't have to be specified explicitly. This should work
-with any system with DNS-based service discovery such as Kontena, Docker Swarm Mode, Consul, etc.
-
 ## How It Works
 
 This is not a simple config update, much effort has gone into making this container automate the initialization
@@ -47,7 +33,37 @@ endpoints for varying degress of healthiness to aid with integration of load bal
 
 Please submit more examples for Kubernetes, Mesos, etc. and also improvements for existing examples!
 
-### Environment Variables
+## Commands
+
+The entrypoint takes as a command one of the following startup "modes":
+
+### seed
+
+Used only to initialize a new cluster and after initialization and other nodes are joined
+the "seed" container should be stopped and replaced with a "node" container using the same volume.
+
+### node
+
+Join an existing cluster. Takes as a second argument a comma-separated list of IPs or
+hostnames to resolve which are used to build the `--wsrep_cluster_address` option for joining a cluster.
+
+A "node" can actually also be used to bootstrap a cluster as the "seed" does described above by placing a flag
+file in the data volume before boot name `/var/lib/mysql/new-cluster`.
+
+### no-galera
+
+Start server with Galera disabled. Useful for maintenance tasks like performing `mysql_upgrade`
+and resetting root credentials.
+
+### sleep
+
+Start the container but not the server. Runs "sleep infinity". Useful just to get volumes
+initialized or if you want to `docker exec` without the server running.
+
+By using DNS resolution to discover other nodes they don't have to be specified explicitly. This should work
+with any system with DNS-based service discovery such as Kontena, Docker Swarm Mode, Consul, etc.
+
+## Environment Variables
 
  - `XTRABACKUP_PASSWORD` (required unless `XTRABACKUP_PASSWORD_FILE` is provided)
  - `SYSTEM_PASSWORD` (required or set to a hash of `XTRABACKUP_PASSWORD` if provided.)
@@ -60,10 +76,15 @@ Please submit more examples for Kubernetes, Mesos, etc. and also improvements fo
  - `SKIP_TZINFO` (optional) - Specify any value to skip loading of timezone table data when initing a new directory.
  - `DEFAULT_TIME_ZONE` (optional - defaults to the `TZ` envvar or to '+00:00' if undefined) - Specify the database's time zone, either in numeric format (+01:00) or in verbal format (CET, Europe/Bratislava, etc.). The latter one is possible only if you haven't specified `SKIP_TZINFO`. More information about why you would need this is [here](https://mariadb.com/kb/en/library/time-zones/).
  - `SST_METHOD` (optional - defaults to 'xtrabackup-v2')  May be set to 'rsync' or 'mysqldump'.  Other methods requiring further configuration or installed dependencies are not available in this image.
+ - `SKIP_UPGRADES` (optional - prevent running `run-upgrades.sh` script)
 
 Additional variables for "seed":
 
- - `MYSQL_ROOT_PASSWORD` (optional)
+ - `MYSQL_ROOT_PASSWORD` (optional) - See also `/var/lib/mysql/new-cluster` flag file.
+ - `MYSQL_ROOT_HOST` (optional) - Defaults to '127.0.0.1' if not specified. Specify '%' to allow root login from any host.
+ - `MYSQL_ROOT_SOCKET_AUTH` (optional) - Enabled by default, specify `0` to disable. If enabled `'root'@'localhost'` is created on bootstrap such that
+    root can login via the unix socket without a password! This allows `docker exec` commands to work without a password while still requiring a password for
+    login over the network.
  - `MYSQL_DATABASE` (optional)
  - `MYSQL_USER` (optional)
  - `MYSQL_PASSWORD` (optional)
@@ -72,7 +93,7 @@ Additional variables for "node":
 
  - `GCOMM_MINIMUM` (optional - defaults to 2)
 
-#### Providing secrets through files
+### Providing secrets through files
 
 It's also possible to configure the sensitive variables using files, a method used by [Docker Swarm](https://docs.docker.com/engine/swarm/secrets/),
 Rancher and perhaps others. The paths to the secret files defaults to `/run/secrets/{lower_case_variable_name}`
@@ -81,26 +102,28 @@ but can be specified explicitly as well using the following environment variable
  - `XTRABACKUP_PASSWORD_FILE`
  - `SYSTEM_PASSWORD_FILE`
  - `MYSQL_ROOT_PASSWORD_FILE`
+ - `MYSQL_ROOT_HOST_FILE`
  - `MYSQL_PASSWORD_FILE`
  - `MYSQL_DATABASE_FILE`
 
-### Flag Files
+## Flag Files
 
 In order to accomodate controlling the bootstrapping phase without having to change the CMD which is sometimes
 hard to do with automated schedulers you can touch the following files to change the bootstrapping behavior
 before starting the container. All files are expected to be in the /var/lib/mysql directory which you should be
 mounting as a container volume.
 
- - /var/lib/mysql/new-cluster - Cause a 'node' container to behave as a 'seed' container on it's first run. This
+ - `/var/lib/mysql/new-cluster` - Cause a 'node' container to behave as a 'seed' container on it's first run. This
    may also be used for recovery in case a Primary Component cannot be formed or for bootstrapping a fresh cluster
    in place of using the 'seed' container. If the file has any contents they will be used as the `MYSQL_ROOT_PASSWORD`.
- - /var/lib/mysql/hold-start - Cause a 'node' container to wait until this file is deleted before trying to boot.
+ - `/var/lib/mysql/hold-start` - Cause a 'node' container to wait until this file is deleted before trying to boot.
    This could be used in the absence of a scheduler with an easy fine-grained scheduling control.
- - /var/lib/mysql/force-cluster-bootstrapping - Force the creation of MySQL users again ('seed' or 'node' command).
- - /var/lib/mysql/skip-cluster-bootstrapping - Prevent the creation of MySQL users. This file will be created and
+ - `/var/lib/mysql/force-cluster-bootstrapping` - Force the creation of MySQL users again ('seed' or 'node' command).
+ - `/var/lib/mysql/skip-cluster-bootstrapping` - Prevent the creation of MySQL users. This file will be created and
    **should not** be deleted under normal circumstances.
+ - `/var/lib/mysql/skip-upgrades` - Prevent running the `run-upgrades.sh` script.
 
-### Health Checks
+## Health Checks
 
 By default there are two HTTP-based healthcheck servers running in the background.
 
@@ -120,7 +143,13 @@ own port 8080 health check described above until it reports healthy at which poi
 port which just forwards to port 8080. This can be used with Kontena's `wait_for_port` feature to accomodate the
 rolling update mechanism.
 
-### More Info
+## Upgrading from 10.1 to 10.2
+
+Before upgrading you need to grant the `PROCESS` privilege to the xtrabackup user:
+
+    mysql> GRANT PROCESS ON *.* TO 'xtrabackup'@'localhost';
+
+# More Info
 
  - Tries to handle as many recovery scenarios as possible including full cluster ungraceful shutdown by
    using --wsrep-recovery and inter-node communication to discover the optimal node for bootstrapping
@@ -151,22 +180,8 @@ rolling update mechanism.
  - You can monitor cluster state changes more clearly by setting `wsrep_notify_cmd` to `/usr/local/bin/notify.sh`
    which will output the updates to the Docker logs/console.
 
-### Credit
+# Credit
 
  - Forked from ["jakolehm/docker-galera-mariadb-10.0"](https://github.com/jakolehm/docker-galera-mariadb-10.0)
    - Forked from ["sttts/docker-galera-mariadb-10.0"](https://github.com/sttts/docker-galera-mariadb-10.0)
  - galera-healthcheck go binary from ["sttts/galera-healthcheck"](https://github.com/sttts/galera-healthcheck)
-
-### Changes
-
- - Rebase on official Docker mariadb:10.1 image and fix for new 10.1 changes.
- - Add support for Docker Swarm Mode by falling back to eth0 if no ethwe adapter found.
- - Support any adapter/IP by specifying `NODE_ADDRESS=<interface|pattern>`.
- - Fix running mysqld as root using `gosu mysql mysqld.sh`.
- - Add support for HEALTHCHECK for Docker 1.12.
- - Delay starting mysqld until at least GCOMM_MINIMUM total nodes are up when using DNS resolution for node list.
- - Bundle galera-healthcheck binary.
- - Completely rewrite mysqld.sh startup script for proper cluster bootstrapping and recovery.
- - Add sourcing of /usr/local/lib/startup.sh for easier entrypoint extension.
- - Add 'sleep', 'no-galera' and 'bash' modes for easier maintenance/debugging.
- - Various other minor improvements.

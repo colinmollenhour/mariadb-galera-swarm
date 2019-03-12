@@ -1,18 +1,16 @@
-Use flag files to manage the bootstrapping process. Pick one node (e.g. "db1") to be the seed and put the other nodes
-(e.g. "db2" and "db3" on "hold" until you are ready to have them join.
+MariaDb Galera Cluster on Kontena in 2 steps
+--------------------------------------------
 
+If you need to import a large database, uncomment the "hold-start" hook so that you can load the data
+on the seed node and then remove the hold-start on each node to sync.
 
-    db1 $ docker volume create mysql-data
-    db1 $ touch /var/lib/docker/volumes/mysql-data/_data/new-cluster
-    db1 $ chmod 666 /var/lib/docker/volumes/mysql-data/_data/new-cluster  #IMPORTANT!
-    db2 $ docker volume create mysql-data
-    db2 $ touch /var/lib/docker/volumes/mysql-data/_data/hold-start
-    db3 $ docker volume create mysql-data
-    db3 $ touch /var/lib/docker/volumes/mysql-data/_data/hold-start
-    $ kontena stack install kontena.yml
-    $ # Check logs for generated root password
-    $ # Import database dump on db1
-    db2 $ rm /var/lib/docker/volumes/mysql-data/_data/hold-start
-    $ # Wait for db2 to become Synced
-    db3 $ rm /var/lib/docker/volumes/mysql-data/_data/hold-start
-    $ # All done!
+    $ kontena volume create --driver local --scope instance galera-data
+    $ kontena stack install -n galera kontena.yml
+
+Now import your database dump using your preferred method. The root password can be found in the docker
+logs of the seed node.    
+
+Remove the hold-start flag if you uncommented the "hold-start" hook:
+
+    $ kontena service exec --instance 2 galera/node rm /var/lib/mysql/hold-start
+    $ kontena service exec --instance 3 galera/node rm /var/lib/mysql/hold-start

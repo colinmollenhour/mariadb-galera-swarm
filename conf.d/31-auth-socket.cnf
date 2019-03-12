@@ -1,0 +1,5 @@
+[mysqld]
+
+# Required for run-upgrades.sh to work
+plugin-load-add=auth_socket.so
+
