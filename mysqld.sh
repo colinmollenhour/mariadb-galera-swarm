@@ -7,6 +7,7 @@
 LOG_MESSAGE="===|mysqld.sh|===:"
 OPT="$@"
 HEAD_START=15
+echo $OPT
 
 function do_install_db {
 	if ! test -d /var/lib/mysql/mysql; then

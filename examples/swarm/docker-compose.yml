@@ -2,7 +2,8 @@ version: '3.4'
 
 services:
   seed:
-    image: colinmollenhour/mariadb-galera-swarm
+    #image: colinmollenhour/mariadb-galera-swarm
+    image: mariadb-10.3-swarm
     environment:
       - XTRABACKUP_PASSWORD_FILE=/run/secrets/xtrabackup_password
       - MYSQL_USER=user
@@ -10,6 +11,7 @@ services:
       - MYSQL_DATABASE=database
       - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/mysql_root_password
       - NODE_ADDRESS=^10.0.*.*
+      - TRACE=y
     networks:
       - galera_network
     command: seed
@@ -20,7 +22,9 @@ services:
       - mysql_password
       - mysql_root_password
   node:
-    image: colinmollenhour/mariadb-galera-swarm
+    #image: colinmollenhour/mariadb-galera-swarm
+    image: mariadb-10.3-swarm
+    #hostname: "{{.Service.Name}}-{{.Task.Slot}}"
     environment:
       - XTRABACKUP_PASSWORD_FILE=/run/secrets/xtrabackup_password
       - NODE_ADDRESS=^10.0.*.*
@@ -32,7 +36,7 @@ services:
       - mysql-data:/var/lib/mysql
     deploy:
       replicas: 0
-      endpoint_mode: dnsrr
+      #endpoint_mode: dnsrr
     secrets:
       - xtrabackup_password
 
