@@ -1,0 +1,74 @@
+version: '3.4'
+
+services:
+  seed:
+    #image: colinmollenhour/mariadb-galera-swarm
+    image: mariadb-10.3-swarm
+    environment:
+      - XTRABACKUP_PASSWORD_FILE=/run/secrets/xtrabackup_password
+      - MYSQL_USER=user
+      - MYSQL_PASSWORD_FILE=/run/secrets/mysql_password
+      - MYSQL_DATABASE=database
+      - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/mysql_root_password
+      - NODE_ADDRESS=^10.0.*.*
+      - TRACE=y
+    # networks:
+      # - galera_network
+    command: seed
+    volumes:
+      - /data/swarm/grafana/seed:/var/lib/mysql
+    deploy:
+      replicas: 1
+    secrets:
+      - xtrabackup_password
+      - mysql_password
+      - mysql_root_password
+
+  node:
+    #image: colinmollenhour/mariadb-galera-swarm
+    image: mariadb-10.3-swarm
+    #hostname: "{{.Service.Name}}-{{.Task.Slot}}"
+    environment:
+      - XTRABACKUP_PASSWORD_FILE=/run/secrets/xtrabackup_password
+      - NODE_ADDRESS=^10.0.*.*
+      - HEALTHY_WHILE_BOOTING=1
+    # networks:
+      # - galera_network
+    command: node seed,node
+    volumes:
+      - '/data/swarm/grafana/node/{{.Service.Name}}-{{.Task.Slot}}:/var/lib/mysql'
+    deploy:
+      replicas: 1
+      #endpoint_mode: dnsrr
+    secrets:
+      - xtrabackup_password
+  
+  db_proxy:
+    image: debian:9    
+    entrypoint: /bin/sleep infinity
+    # command: 
+    deploy:
+      replicas: 1
+    volumes:
+      - '/media/sf_ansible/roles/tagman-frontend/files/DockerImages/.old/tagman-front-ui-db.2/mariadb-galera-swarm/examples/swarm/dev/:/devel'
+
+# volumes:
+#   mysql-data:
+#     # name: '{{.Service.Name}}-{{.Task.Slot}}-data'
+#     driver_opts:
+#       type: none
+#       device: '/data/swarm/grafana/node'
+#       o: bind
+  #   driver: local
+
+# networks:
+  # galera_network:
+  #   driver: overlay
+
+secrets:
+  xtrabackup_password:
+    file: .secrets/xtrabackup_password
+  mysql_password:
+    file: .secrets/mysql_password
+  mysql_root_password:
+    file: .secrets/mysql_root_password
