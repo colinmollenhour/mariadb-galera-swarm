@@ -333,7 +333,6 @@ case $START_MODE in
 						RESLVADDR="tasks.$ADDR"
 					fi
 					echo "hosts: $(getent hosts "$RESLVADDR")"					
-					echo "getent hosts RESLVADDR"
 					GCOMMTMP="$SEP$(getent hosts "$RESLVADDR" | awk '{ print $1 }' | paste -sd ",")"
 					if [ ! -z $GCOMMTMP ]; then
 						GCOMM+=$GCOMMTMP
@@ -347,7 +346,7 @@ case $START_MODE in
 			done
 			GCOMM=${GCOMM%%,}                        # strip trailing commas
 			GCOMM=$(echo "$GCOMM" | sed 's/,\+/,/g') # strip duplicate commas
-			echo "$GCOMM $GCOMM_MINIMUM"
+
 			# Allow user to bypass waiting for other IPs
 			if [[ -f /var/lib/mysql/skip-gcomm-wait ]]; then
 				break
@@ -381,11 +380,9 @@ case $START_MODE in
 		# Pre-boot completed
 		rm -f /var/lib/mysql/pre-boot.flag
 
-		echo "pre $GCOMM"
 		GCOMM=${GCOMM//$NODE_ADDRESS/}
 		GCOMM=${GCOMM#,}
 		GCOMM=${GCOMM%,}
-		echo "post $GCOMM"
 
 		GCOMM=$(echo "$GCOMM" | sed 's/,\+/,/g')
 
