@@ -393,7 +393,6 @@ esac
 
 # start processes
 set +e -m
-set -v
 
 # Allow external processes to write to docker logs (wsrep_notify_cmd)
 # Place it in a directory that is not writeable by mysql to prevent SST script from deleting it
