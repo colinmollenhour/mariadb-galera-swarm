@@ -169,7 +169,11 @@ if [ -z "$SYSTEM_PASSWORD" ]; then
 fi
 
 CLUSTER_NAME=${CLUSTER_NAME:-cluster}
-GCOMM_MINIMUM=${GCOMM_MINIMUM:-3}
+IP_RESOLVEMETH={$IP_RESOLVEMETH:-default}
+GCOMM_MINIMUM=${GCOMM_MINIMUM:-2}
+if [[ $IP_RESOLVEMETH = "swarm_tasks" ]]; then
+	GCOMM_MINIMUM=$GCOMM_MINIMUM+1
+fi
 GCOMM=""
 
 # Hold startup until the flag file is deleted
@@ -324,9 +328,13 @@ case $START_MODE in
 					GCOMM+="$SEP$ADDR"
 				else
 					RESOLVE=1
-					echo "hosts: $(getent hosts tasks."$ADDR")"
-					echo "getent hosts tasks."$ADDR""
-					GCOMMTMP="$SEP$(getent hosts tasks."$ADDR" | awk '{ print $1 }' | paste -sd ",")"
+					RESLVADDR=$ADDR
+					if [[ $IP_RESOLVEMETH = "swarm_tasks" ]]; then
+						RESLVADDR="tasks.$ADDR"
+					fi
+					echo "hosts: $(getent hosts "$RESLVADDR")"					
+					echo "getent hosts RESLVADDR"
+					GCOMMTMP="$SEP$(getent hosts "$RESLVADDR" | awk '{ print $1 }' | paste -sd ",")"
 					if [ ! -z $GCOMMTMP ]; then
 						GCOMM+=$GCOMMTMP
 					else
@@ -372,11 +380,12 @@ case $START_MODE in
 		done
 		# Pre-boot completed
 		rm -f /var/lib/mysql/pre-boot.flag
+
+		echo "pre $GCOMM"
 		GCOMM=${GCOMM//$NODE_ADDRESS/}
-
 		GCOMM=${GCOMM#,}
-
 		GCOMM=${GCOMM%,}
+		echo "post $GCOMM"
 
 		GCOMM=$(echo "$GCOMM" | sed 's/,\+/,/g')
 
