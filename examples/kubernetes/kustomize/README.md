@@ -10,9 +10,7 @@ configuration later. If you have any improvements please submit them.
 and put them in secrets.yml
 
 ```
-
 $ openssl rand -base64 32 | base64
-
 ```
 
 2. Verify if statefullset arg matches seed service dns name: seed,mariadb-galera-seed
@@ -21,5 +19,4 @@ $ openssl rand -base64 32 | base64
  
 ```
 $ kubectl apply -k kustomize/
-
 ```

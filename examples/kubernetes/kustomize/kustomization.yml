@@ -6,3 +6,10 @@ resources:
   - service.yml
   - galera-seed.yml
   - statefulset.yml
+
+# patches:
+#   -
+
+# images:
+#   -
+
