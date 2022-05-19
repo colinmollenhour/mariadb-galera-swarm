@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb-galera
+  namespace: galera-cluster
+  labels:
+    app: mariadb-galera
+spec:
+  ports:
+  - port: 3306
+    name: mysql
+  - port: 3309
+    name: recovery
+  type: NodePort
+  # Keep session bound to specific node
+  sessionAffinity: ClientIP
+  # Get real client IP for session affinity usage
+  externalTrafficPolicy: Local
+  selector:
+    app: mariadb-galera-node
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb-galera-seed
+  namespace: galera-cluster
+  labels:
+    app: mariadb-galera
+spec:
+  ports:
+  - port: 3306
+    name: mysql
+  - port: 3309
+    name: recovery
+  - port: 4444
+    name: sst
+  - port: 4567
+    name: gcom
+  - port: 4568
+    name: gcom2
+  - port: 8080
+    name: hup
+  - port: 8081
+    name: hboot
+  type: ClusterIP
+  selector:
+    app: mariadb-galera-seed

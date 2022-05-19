@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mariadb-galera
+  namespace: galera-cluster
+spec:
+  serviceName: "mariadb-galera"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mariadb-galera-node
+  template:
+    metadata:
+      labels:
+        app: mariadb-galera-node
+    spec:
+      initContainers:
+        # Init container only required to rm lost+found directory on mounted volume
+        - name: cleanup
+          image: colinmollenhour/mariadb-galera-swarm
+          command: [ "/bin/bash", "-c", "--" ]
+          args: ["rm -rf /var/lib/mysql/lost+found"]
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+      containers:
+      - name: mariadb-galera
+        image: colinmollenhour/mariadb-galera-swarm:latest
+        env:
+          - name: CLUSTER_NAME
+            value: "galera-cluster"
+          - name: LISTEN_WHEN_HEALTHY
+            value: "8082"
+          - name: HEALTHY_WHILE_BOOTING
+            value: "1"
+          - name: DEFAULT_TIME_ZONE
+            value: "+01:00"
+          - name: NODE_ADDRESS
+            value: "^10.42.*.*"
+          - name: SST_METHOD
+            value: "rsync"
+          - name: MYSQL_ROOT_SOCKET_AUTH
+            value: "0"
+          - name: MYSQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: db_password
+                name: galera-secrets
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: db_root_password
+                name: galera-secrets
+          - name: MYSQL_USER
+            valueFrom:
+              secretKeyRef:
+                key: db_user
+                name: galera-secrets
+          - name: XTRABACKUP_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: xtrabackup_password
+                name: galera-secrets
+          - name: SYSTEM_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: system_password
+                name: galera-secrets
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "2"
+          limits:
+            memory: "5Gi"
+            cpu: "2"
+        ports:
+        - containerPort: 3306
+          name: mysql
+        - containerPort: 3309
+          name: recovery
+        - containerPort: 4444
+          name: sst
+        - containerPort: 4567
+          name: gcom
+        - containerPort: 4568
+          name: gcom2
+        - containerPort: 8080
+          name: hup
+        - containerPort: 8081
+          name: hboot
+        args:
+          - node
+          - seed,mariadb-galera-seed
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 15
+          timeoutSeconds: 5
+          successThreshold: 2
+        livenessProbe:
+          tcpSocket:
+            port: 8081
+          initialDelaySeconds: 60
+          periodSeconds: 15
+        volumeMounts:
+        - name: mysql-data
+          mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+  - metadata:
+      name: mysql-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+    # Use anothe storage class for your specific usage
+      storageClassName: rook-ceph-block
+      resources:
+        requests:
+          storage: 20Gi

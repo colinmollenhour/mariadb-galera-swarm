@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mariadb-galera-seed
+  namespace: galera-cluster
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mariadb-galera-seed
+  template:
+    metadata:
+      labels:
+        app: mariadb-galera-seed
+    spec:
+      volumes:
+        - name: mysql-data
+          emptyDir: {}
+      containers:
+        - name: 'mariadb-galera-seed'
+          image: colinmollenhour/mariadb-galera-swarm:latest
+          args:
+            - seed
+          ports:
+            - containerPort: 3306
+              name: mysql
+            - containerPort: 3309
+              name: recovery
+            - containerPort: 4444
+              name: sst
+            - containerPort: 4567
+              name: gcom
+            - containerPort: 4568
+              name: gcom2
+            - containerPort: 8080
+              name: hup
+            - containerPort: 8081
+              name: hboot
+          env:
+            - name: CLUSTER_NAME
+              value: "galera-cluster"
+            - name: DEFAULT_TIME_ZONE
+              value: "+01:00"
+            - name: NODE_ADDRESS
+              value: "^10.42.*.*"
+            - name: SST_METHOD
+              value: "rsync"
+            - name: MYSQL_ROOT_HOST
+              value: "%"
+            - name: MYSQL_ROOT_SOCKET_AUTH
+              value: "0"
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  key: db_name
+                  name: galera-secrets
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: galera-secrets
+                  key: db_password
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: db_root_password
+                  name: galera-secrets
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  key: db_user
+                  name: galera-secrets
+            - name: XTRABACKUP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: xtrabackup_password
+                  name: galera-secrets
+            - name: SYSTEM_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: system_password
+                  name: galera-secrets
