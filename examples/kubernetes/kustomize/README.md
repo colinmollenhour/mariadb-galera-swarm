@@ -9,13 +9,17 @@ configuration later. If you have any improvements please submit them.
 1. Generate XTRABACKUP_PASSWORD, SYSTEM_PASSWORD, MYSQL_ROOT_PASSWORD, MYSQL_PASSWORD
 and put them in secrets.yml
 
-    $ openssl rand -base64 32 | base64
+```
+
+$ openssl rand -base64 32 | base64
+
+```
 
 2. Verify if statefullset arg matches seed service dns name: seed,mariadb-galera-seed
 
 3. Setup the cluster
+ 
+```
+$ kubectl apply -k kustomize/
 
-    $ kubectl apply -k kustomize
-
-Note! Am using the _FILE env variables because had issues with using the direct variables in
-combination with kubernetes secrets.
+```
