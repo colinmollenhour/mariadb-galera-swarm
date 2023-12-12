@@ -355,5 +355,5 @@ fi
 # Start mysqld
 echo "${LOG_MESSAGE} ---------------------------------------------------------------"
 echo "${LOG_MESSAGE} Starting with options: $OPT $START"
-exec mysqld $OPT $START
+exec mysqld $OPT $START --bind-address=0.0.0.0
 
