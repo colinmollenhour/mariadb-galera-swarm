@@ -1,4 +1,6 @@
-FROM mariadb:11.4
+ARG MARIADB_VERSION=11.7
+
+FROM mariadb:$MARIADB_VERSION
 
 RUN set -x \
     && apt-get update \
