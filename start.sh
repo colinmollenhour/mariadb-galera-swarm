@@ -323,7 +323,7 @@ case $START_MODE in
 					GCOMM+="$SEP$ADDR"
 				else
 					RESOLVE=1
-					GCOMM+="$SEP$(getent hosts "$ADDR" | awk '{ print $1 }' | paste -sd ",")"
+					GCOMM+="$SEP$(getent hosts "$ADDR" | awk -v addr="$ADDR" '$2 == addr { print $1 }' | paste -sd ",")"
 				fi
 				if [ -n "$GCOMM" ]; then
 					SEP=,
